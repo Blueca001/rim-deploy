@@ -205,13 +205,9 @@ function rim_apartment_details_callback( $post ) {
             'label' => __( 'Descrizione breve', 'residence-i-mari' ),
             'type'  => 'textarea',
         ),
-        'rim_amenities'         => array(
-            'label' => __( 'Servizi (separati da virgola)', 'residence-i-mari' ),
-            'type'  => 'text',
-        ),
-        'rim_airbnb_url'        => array(
-            'label' => __( 'URL Airbnb', 'residence-i-mari' ),
-            'type'  => 'url',
+        'rim_base_price' => array(
+            'label' => __( 'Prezzo base / notte (€)', 'residence-i-mari' ),
+            'type'  => 'number',
         ),
     );
 
@@ -245,6 +241,25 @@ function rim_apartment_details_callback( $post ) {
     }
 
     echo '</tbody></table>';
+
+    // Amenità a icone — "Cosa troverai"
+    $saved_amenities = get_post_meta( $post->ID, 'rim_amenities', true );
+    $saved_amenities = is_array( $saved_amenities ) ? $saved_amenities : array();
+    $all_amenities   = rim_amenities_master();
+    ?>
+    <div style="margin-top:20px;">
+        <p style="font-weight:600;margin-bottom:10px;">Cosa troverai (dotazioni)</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;">
+            <?php foreach ( $all_amenities as $key => $amenity ) :
+                $checked = in_array( $key, $saved_amenities, true ) ? ' checked' : ''; ?>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                    <input type="checkbox" name="rim_amenities[]" value="<?php echo esc_attr( $key ); ?>"<?php echo $checked; ?>>
+                    <?php echo esc_html( $amenity['label'] ); ?>
+                </label>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
 }
 
 /**
@@ -374,7 +389,7 @@ function rim_save_apartment_meta( $post_id ) {
         'rim_guests',
         'rim_rooms',
         'rim_short_description',
-        'rim_amenities',
+        'rim_base_price',
     );
 
     foreach ( $text_fields as $key ) {
@@ -383,10 +398,12 @@ function rim_save_apartment_meta( $post_id ) {
         }
     }
 
-    // URL Airbnb
-    if ( isset( $_POST['rim_airbnb_url'] ) ) {
-        update_post_meta( $post_id, 'rim_airbnb_url', esc_url_raw( wp_unslash( $_POST['rim_airbnb_url'] ) ) );
-    }
+    // Dotazioni (Cosa troverai)
+    $valid_keys      = array_keys( rim_amenities_master() );
+    $selected        = isset( $_POST['rim_amenities'] ) && is_array( $_POST['rim_amenities'] )
+        ? array_values( array_intersect( $_POST['rim_amenities'], $valid_keys ) )
+        : array();
+    update_post_meta( $post_id, 'rim_amenities', $selected );
 
     // Galleria
     if ( isset( $_POST['rim_gallery'] ) && is_array( $_POST['rim_gallery'] ) ) {
@@ -434,12 +451,12 @@ function rim_customizer_settings( $wp_customize ) {
         ),
         'rim_email'                => array(
             'label'   => __( 'Email', 'residence-i-mari' ),
-            'default' => 'residenceimari@gmail.com',
+            'default' => 'piccolo_hotel@virgilio.it',
             'type'    => 'email',
         ),
         'rim_address'              => array(
             'label'   => __( 'Indirizzo', 'residence-i-mari' ),
-            'default' => 'Via Montecristo 7, 58043 Castiglione della Pescaia (GR)',
+            'default' => 'Via Ansedonia 10, 58043 Castiglione della Pescaia (GR)',
         ),
         'rim_google_maps_embed_url' => array(
             'label'   => __( 'URL embed Google Maps', 'residence-i-mari' ),
@@ -529,7 +546,7 @@ function rim_customizer_settings( $wp_customize ) {
     ) );
 
     $wp_customize->add_setting( 'rim_location_desc', array(
-        'default'           => 'Il Residence I Mari si trova in <strong>Via Montecristo 7</strong>, in una posizione privilegiata a pochi passi dal centro e dalla spiaggia. La località è una delle perle della Maremma Toscana, premiata con la Bandiera Blu per la qualità delle acque.',
+        'default'           => 'Il Residence I Mari si trova in <strong>Via Ansedonia 10</strong>, in una posizione privilegiata a pochi passi dal centro e dalla spiaggia. La località è una delle perle della Maremma Toscana, premiata con la Bandiera Blu per la qualità delle acque.',
         'sanitize_callback' => 'wp_kses_post',
         'transport'         => 'refresh',
     ) );
@@ -574,6 +591,55 @@ function rim_customizer_settings( $wp_customize ) {
         'label'   => __( 'Sottotitolo hero', 'residence-i-mari' ),
         'section' => 'rim_homepage_hero',
     ) );
+}
+
+/* ─────────────────────────────────────────────
+ * 6b. CUSTOMIZER — Impostazioni SEO / Webmaster
+ * ───────────────────────────────────────────── */
+add_action( 'customize_register', 'rim_customizer_seo_settings' );
+function rim_customizer_seo_settings( $wp_customize ) {
+
+    $wp_customize->add_section( 'rim_seo_webmaster', array(
+        'title'       => __( 'SEO / Webmaster Tools', 'residence-i-mari' ),
+        'priority'    => 31,
+        'description' => __( 'Codici di verifica per Google Search Console e altri strumenti.', 'residence-i-mari' ),
+    ) );
+
+    $wp_customize->add_setting( 'rim_google_site_verification', array(
+        'default'           => '',
+        'sanitize_callback' => 'sanitize_text_field',
+        'transport'         => 'refresh',
+    ) );
+    $wp_customize->add_control( 'rim_google_site_verification', array(
+        'label'       => __( 'Google Search Console — Codice verifica', 'residence-i-mari' ),
+        'description' => __( 'Incolla solo il valore content del meta tag (es: AbCdEf123456).', 'residence-i-mari' ),
+        'section'     => 'rim_seo_webmaster',
+        'type'        => 'text',
+    ) );
+
+    $wp_customize->add_setting( 'rim_bing_site_verification', array(
+        'default'           => '',
+        'sanitize_callback' => 'sanitize_text_field',
+        'transport'         => 'refresh',
+    ) );
+    $wp_customize->add_control( 'rim_bing_site_verification', array(
+        'label'   => __( 'Bing Webmaster — Codice verifica', 'residence-i-mari' ),
+        'section' => 'rim_seo_webmaster',
+        'type'    => 'text',
+    ) );
+}
+
+add_action( 'wp_head', 'rim_webmaster_verification_tags', 0 );
+function rim_webmaster_verification_tags() {
+    $google = get_theme_mod( 'rim_google_site_verification', '' );
+    if ( $google ) {
+        echo '<meta name="google-site-verification" content="' . esc_attr( $google ) . '">' . "\n";
+    }
+
+    $bing = get_theme_mod( 'rim_bing_site_verification', '' );
+    if ( $bing ) {
+        echo '<meta name="msvalidate.01" content="' . esc_attr( $bing ) . '">' . "\n";
+    }
 }
 
 /* ─────────────────────────────────────────────
@@ -743,7 +809,259 @@ function rim_register_widget_areas() {
 }
 
 /* ─────────────────────────────────────────────
- * 10. MOBILE BOTTOM BAR SUPPORT
+ * 10. SEO — Schema Markup JSON-LD
+ * ───────────────────────────────────────────── */
+add_action( 'wp_head', 'rim_schema_jsonld' );
+function rim_schema_jsonld() {
+
+    $site_name = get_bloginfo( 'name' );
+    $site_url  = home_url( '/' );
+    $phone     = get_theme_mod( 'rim_phone', '0564 937081' );
+    $email     = get_theme_mod( 'rim_email', 'residenceimari@gmail.com' );
+    $address   = get_theme_mod( 'rim_address', 'Via Ansedonia 10, 58043 Castiglione della Pescaia (GR)' );
+    $rating    = get_theme_mod( 'rim_google_rating', '4.5' );
+    $reviews   = get_theme_mod( 'rim_google_reviews_count', '141' );
+
+    $rating_value = floatval( preg_replace( '/[^0-9.]/', '', $rating ) );
+    $reviews_count = absint( preg_replace( '/[^0-9]/', '', $reviews ) );
+
+    if ( is_front_page() ) {
+        $lodging = array(
+            '@context'    => 'https://schema.org',
+            '@type'       => 'LodgingBusiness',
+            'name'        => $site_name,
+            'description' => 'Residence con 9 appartamenti ristrutturati a 100 metri dal mare a Castiglione della Pescaia, Maremma Toscana. Parcheggio privato, pet friendly.',
+            'url'         => $site_url,
+            'telephone'   => '+39' . preg_replace( '/[^\d]/', '', $phone ),
+            'email'       => $email,
+            'address'     => array(
+                '@type'           => 'PostalAddress',
+                'streetAddress'   => 'Via Ansedonia 10',
+                'addressLocality' => 'Castiglione della Pescaia',
+                'postalCode'      => '58043',
+                'addressRegion'   => 'GR',
+                'addressCountry'  => 'IT',
+            ),
+            'geo' => array(
+                '@type'     => 'GeoCoordinates',
+                'latitude'  => 42.7644,
+                'longitude' => 10.8833,
+            ),
+            'image'       => get_theme_file_uri( 'img/esterni/Esterni-e-Hall-2.jpg' ),
+            'starRating'  => array(
+                '@type'       => 'Rating',
+                'ratingValue' => '3',
+            ),
+            'amenityFeature' => array(
+                array( '@type' => 'LocationFeatureSpecification', 'name' => 'Parcheggio privato', 'value' => true ),
+                array( '@type' => 'LocationFeatureSpecification', 'name' => 'Aria condizionata', 'value' => true ),
+                array( '@type' => 'LocationFeatureSpecification', 'name' => 'Pet friendly', 'value' => true ),
+                array( '@type' => 'LocationFeatureSpecification', 'name' => 'Wi-Fi', 'value' => true ),
+            ),
+            'checkinTime'  => '15:00',
+            'checkoutTime' => '10:00',
+            'petsAllowed'  => true,
+            'numberOfRooms' => 9,
+        );
+
+        if ( $rating_value > 0 && $reviews_count > 0 ) {
+            $lodging['aggregateRating'] = array(
+                '@type'       => 'AggregateRating',
+                'ratingValue' => $rating_value,
+                'bestRating'  => 5,
+                'reviewCount' => $reviews_count,
+            );
+        }
+
+        echo '<script type="application/ld+json">' . wp_json_encode( $lodging, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . '</script>' . "\n";
+    }
+
+    if ( is_singular( 'appartamento' ) ) {
+        $apt_id    = get_the_ID();
+        $sqm       = get_post_meta( $apt_id, 'rim_sqm', true );
+        $guests    = get_post_meta( $apt_id, 'rim_guests', true );
+        $rooms     = get_post_meta( $apt_id, 'rim_rooms', true );
+        $desc      = get_post_meta( $apt_id, 'rim_short_description', true );
+        $amenities = rim_get_amenities( $apt_id );
+
+        $images = array();
+        if ( has_post_thumbnail( $apt_id ) ) {
+            $images[] = get_the_post_thumbnail_url( $apt_id, 'full' );
+        }
+        $gallery = get_post_meta( $apt_id, 'rim_gallery', true );
+        if ( is_array( $gallery ) ) {
+            foreach ( $gallery as $img_id ) {
+                $url = wp_get_attachment_image_url( $img_id, 'large' );
+                if ( $url ) {
+                    $images[] = $url;
+                }
+            }
+        }
+
+        $apartment_schema = array(
+            '@context'    => 'https://schema.org',
+            '@type'       => 'Apartment',
+            'name'        => get_the_title(),
+            'description' => $desc ? $desc : wp_trim_words( get_the_excerpt(), 30 ),
+            'url'         => get_permalink(),
+            'image'       => $images,
+            'containedInPlace' => array(
+                '@type' => 'LodgingBusiness',
+                'name'  => $site_name,
+                'url'   => $site_url,
+            ),
+        );
+
+        if ( $sqm ) {
+            $apartment_schema['floorSize'] = array(
+                '@type'    => 'QuantitativeValue',
+                'value'    => (int) $sqm,
+                'unitCode' => 'MTK',
+            );
+        }
+        if ( $guests ) {
+            $apartment_schema['occupancy'] = array(
+                '@type'    => 'QuantitativeValue',
+                'maxValue' => (int) $guests,
+            );
+        }
+        if ( $rooms ) {
+            $apartment_schema['numberOfRooms'] = (int) $rooms;
+        }
+        if ( ! empty( $amenities ) ) {
+            $apartment_schema['amenityFeature'] = array_map( function( $a ) {
+                $name = is_array( $a ) ? $a['label'] : $a;
+                return array(
+                    '@type' => 'LocationFeatureSpecification',
+                    'name'  => $name,
+                    'value' => true,
+                );
+            }, $amenities );
+        }
+
+        echo '<script type="application/ld+json">' . wp_json_encode( $apartment_schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . '</script>' . "\n";
+    }
+
+    if ( ! is_front_page() ) {
+        $breadcrumbs = array(
+            '@context'        => 'https://schema.org',
+            '@type'           => 'BreadcrumbList',
+            'itemListElement' => array(
+                array(
+                    '@type'    => 'ListItem',
+                    'position' => 1,
+                    'name'     => 'Home',
+                    'item'     => $site_url,
+                ),
+            ),
+        );
+
+        if ( is_singular( 'appartamento' ) ) {
+            $breadcrumbs['itemListElement'][] = array(
+                '@type'    => 'ListItem',
+                'position' => 2,
+                'name'     => 'Appartamenti',
+                'item'     => $site_url . '#appartamenti',
+            );
+            $breadcrumbs['itemListElement'][] = array(
+                '@type'    => 'ListItem',
+                'position' => 3,
+                'name'     => get_the_title(),
+                'item'     => get_permalink(),
+            );
+        } elseif ( is_page() ) {
+            $breadcrumbs['itemListElement'][] = array(
+                '@type'    => 'ListItem',
+                'position' => 2,
+                'name'     => get_the_title(),
+                'item'     => get_permalink(),
+            );
+        }
+
+        echo '<script type="application/ld+json">' . wp_json_encode( $breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . '</script>' . "\n";
+    }
+}
+
+/* ─────────────────────────────────────────────
+ * 11. SEO — Meta Tags (Description, Open Graph, Canonical)
+ * ───────────────────────────────────────────── */
+add_action( 'wp_head', 'rim_seo_meta_tags', 1 );
+function rim_seo_meta_tags() {
+
+    $site_name = get_bloginfo( 'name' );
+    $site_url  = home_url( '/' );
+
+    $title       = $site_name . ' — Appartamenti a Castiglione della Pescaia sul mare';
+    $description = 'Residence con 9 appartamenti ristrutturati a 100 metri dal mare a Castiglione della Pescaia, Maremma Toscana. Parcheggio privato, pet friendly, spiaggia convenzionata.';
+    $canonical   = $site_url;
+    $og_image    = get_theme_file_uri( 'img/esterni/Esterni-e-Hall-2.jpg' );
+    $og_type     = 'website';
+
+    if ( is_singular( 'appartamento' ) ) {
+        $apt_id      = get_the_ID();
+        $short_desc  = get_post_meta( $apt_id, 'rim_short_description', true );
+        $title       = get_the_title() . ' — ' . $site_name;
+        $description = $short_desc ? $short_desc : 'Appartamento ' . get_the_title() . ' al Residence I Mari, Castiglione della Pescaia. A 100 metri dal mare.';
+        $canonical   = get_permalink();
+        $og_type     = 'article';
+
+        if ( has_post_thumbnail( $apt_id ) ) {
+            $og_image = get_the_post_thumbnail_url( $apt_id, 'large' );
+        }
+    } elseif ( is_page() && ! is_front_page() ) {
+        $title     = get_the_title() . ' — ' . $site_name;
+        $canonical = get_permalink();
+
+        $excerpt = get_the_excerpt();
+        if ( $excerpt ) {
+            $description = wp_trim_words( $excerpt, 25, '...' );
+        }
+    } elseif ( is_post_type_archive( 'appartamento' ) ) {
+        $title       = 'Appartamenti — ' . $site_name;
+        $description = 'Scopri i 9 appartamenti del Residence I Mari a Castiglione della Pescaia: bilocali e trilocali ristrutturati a 100 metri dal mare.';
+        $canonical   = get_post_type_archive_link( 'appartamento' );
+    }
+
+    if ( mb_strlen( $description ) > 160 ) {
+        $description = mb_substr( $description, 0, 157 ) . '...';
+    }
+
+    echo '<meta name="description" content="' . esc_attr( $description ) . '">' . "\n";
+    echo '<link rel="canonical" href="' . esc_url( $canonical ) . '">' . "\n";
+    echo '<meta property="og:title" content="' . esc_attr( $title ) . '">' . "\n";
+    echo '<meta property="og:description" content="' . esc_attr( $description ) . '">' . "\n";
+    echo '<meta property="og:url" content="' . esc_url( $canonical ) . '">' . "\n";
+    echo '<meta property="og:type" content="' . esc_attr( $og_type ) . '">' . "\n";
+    echo '<meta property="og:image" content="' . esc_url( $og_image ) . '">' . "\n";
+    echo '<meta property="og:site_name" content="' . esc_attr( $site_name ) . '">' . "\n";
+    echo '<meta property="og:locale" content="it_IT">' . "\n";
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+}
+
+/* ─────────────────────────────────────────────
+ * 12. SEO — Disattiva meta duplicati se Yoast/RankMath attivo
+ * ───────────────────────────────────────────── */
+add_action( 'wp_head', 'rim_maybe_disable_seo_meta', 0 );
+function rim_maybe_disable_seo_meta() {
+    if ( defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' ) || class_exists( 'FLAVOR_SEO' ) ) {
+        remove_action( 'wp_head', 'rim_seo_meta_tags', 1 );
+        remove_action( 'wp_head', 'rim_schema_jsonld' );
+    }
+}
+
+/* ─────────────────────────────────────────────
+ * 13. SEO — Sitemap XML nativa WP
+ * ───────────────────────────────────────────── */
+add_filter( 'wp_sitemaps_post_types', 'rim_sitemap_include_appartamento' );
+function rim_sitemap_include_appartamento( $post_types ) {
+    if ( ! isset( $post_types['appartamento'] ) ) {
+        $post_types['appartamento'] = get_post_type_object( 'appartamento' );
+    }
+    return $post_types;
+}
+
+/* ─────────────────────────────────────────────
+ * 14. MOBILE BOTTOM BAR SUPPORT
  * ───────────────────────────────────────────── */
 
 /**
@@ -768,7 +1086,13 @@ function rim_body_classes( $classes ) {
  * @return string        Numero pulito (solo cifre e +).
  */
 function rim_phone_link( $phone ) {
-    return preg_replace( '/[^\d+]/', '', $phone );
+    // Rimuove spazi e caratteri non numerici
+    $digits = preg_replace( '/[^\d]/', '', $phone );
+    // Rimuove prefisso 39 se già presente (es. se il numero inizia con 39...)
+    if ( strpos( $digits, '39' ) === 0 && strlen( $digits ) > 10 ) {
+        $digits = substr( $digits, 2 );
+    }
+    return $digits;
 }
 
 /**
@@ -777,15 +1101,48 @@ function rim_phone_link( $phone ) {
  * @param  int   $post_id Post ID.
  * @return array
  */
+function rim_amenities_master() {
+    $s = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+    return array(
+        'wifi'          => array( 'label' => 'Wifi',                  'icon' => "<svg $s><path d='M5 12.55a11 11 0 0 1 14.08 0'/><path d='M1.42 9a16 16 0 0 1 21.16 0'/><path d='M8.53 16.11a6 6 0 0 1 6.95 0'/><circle cx='12' cy='20' r='1' fill='currentColor' stroke='none'/></svg>" ),
+        'cucina'        => array( 'label' => 'Cucina attrezzata',     'icon' => "<svg $s><path d='M18 8h1a4 4 0 0 1 0 8h-1'/><path d='M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z'/><line x1='6' y1='1' x2='6' y2='4'/><line x1='10' y1='1' x2='10' y2='4'/><line x1='14' y1='1' x2='14' y2='4'/></svg>" ),
+        'parcheggio'    => array( 'label' => 'Parcheggio gratuito',   'icon' => "<svg $s><rect x='1' y='3' width='15' height='13'/><polygon points='16 8 20 8 23 11 23 16 16 16 16 8'/><circle cx='5.5' cy='18.5' r='2.5'/><circle cx='18.5' cy='18.5' r='2.5'/></svg>" ),
+        'tv'            => array( 'label' => 'TV Satellite',           'icon' => "<svg $s><rect x='2' y='3' width='20' height='14' rx='2' ry='2'/><line x1='8' y1='21' x2='16' y2='21'/><line x1='12' y1='17' x2='12' y2='21'/></svg>" ),
+        'aria_cond'     => array( 'label' => 'Aria condizionata',     'icon' => "<svg $s><path d='M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2'/></svg>" ),
+        'lavatrice'     => array( 'label' => 'Lavatrice',              'icon' => "<svg $s><polyline points='23 4 23 10 17 10'/><path d='M20.49 15a9 9 0 1 1-.68-8.41L23 10'/></svg>" ),
+        'animali'       => array( 'label' => 'Animali ammessi',        'icon' => "<svg $s><path d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/></svg>" ),
+        'culla'         => array( 'label' => 'Culla disponibile',      'icon' => "<svg $s><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>" ),
+        'terrazza'      => array( 'label' => 'Terrazza / Balcone',     'icon' => "<svg $s><circle cx='12' cy='12' r='5'/><line x1='12' y1='1' x2='12' y2='3'/><line x1='12' y1='21' x2='12' y2='23'/><line x1='4.22' y1='4.22' x2='5.64' y2='5.64'/><line x1='18.36' y1='18.36' x2='19.78' y2='19.78'/><line x1='1' y1='12' x2='3' y2='12'/><line x1='21' y1='12' x2='23' y2='12'/><line x1='4.22' y1='19.78' x2='5.64' y2='18.36'/><line x1='18.36' y1='5.64' x2='19.78' y2='4.22'/></svg>" ),
+        'cassaforte'    => array( 'label' => 'Cassaforte',             'icon' => "<svg $s><rect x='3' y='11' width='18' height='11' rx='2' ry='2'/><path d='M7 11V7a5 5 0 0 1 10 0v4'/></svg>" ),
+        'lavastoviglie' => array( 'label' => 'Lavastoviglie',          'icon' => "<svg $s><path d='M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z'/><path d='M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97'/></svg>" ),
+        'lino'          => array( 'label' => 'Biancheria inclusa',     'icon' => "<svg $s><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>" ),
+        'ferro_stiro'   => array( 'label' => 'Ferro da stiro',         'icon' => "<svg $s><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>" ),
+        'asciugacapelli'=> array( 'label' => 'Asciugacapelli',         'icon' => "<svg $s><circle cx='12' cy='12' r='10'/><polyline points='12 8 16 12 12 16'/><line x1='8' y1='12' x2='16' y2='12'/></svg>" ),
+        'bbq'           => array( 'label' => 'Area barbecue',          'icon' => "<svg $s><line x1='8.56' y1='2.75' x2='8.56' y2='20'/><line x1='15.44' y1='2.75' x2='15.44' y2='20'/><path d='M20 9H4a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2z'/></svg>" ),
+        'microonde'     => array( 'label' => 'Microonde',              'icon' => "<svg $s><rect x='2' y='7' width='20' height='15' rx='2' ry='2'/><polyline points='17 2 17 7'/><polyline points='12 2 12 7'/><polyline points='7 2 7 7'/><line x1='2' y1='12' x2='22' y2='12'/></svg>" ),
+    );
+}
+
 function rim_get_amenities( $post_id = 0 ) {
     if ( ! $post_id ) {
         $post_id = get_the_ID();
     }
-    $raw = get_post_meta( $post_id, 'rim_amenities', true );
-    if ( empty( $raw ) ) {
+    $saved = get_post_meta( $post_id, 'rim_amenities', true );
+    // Retrocompatibilità: vecchio formato stringa CSV
+    if ( is_string( $saved ) && ! empty( $saved ) ) {
+        return array_map( 'trim', explode( ',', $saved ) );
+    }
+    if ( ! is_array( $saved ) || empty( $saved ) ) {
         return array();
     }
-    return array_map( 'trim', explode( ',', $raw ) );
+    $master = rim_amenities_master();
+    $result = array();
+    foreach ( $saved as $key ) {
+        if ( isset( $master[ $key ] ) ) {
+            $result[ $key ] = $master[ $key ];
+        }
+    }
+    return $result;
 }
 
 /* ─────────────────────────────────────────────
@@ -1016,15 +1373,30 @@ function rim_check_availability_handler() {
 
         $thumb = get_the_post_thumbnail_url( $apt->ID, 'medium' );
 
+        // Calculate total price for the stay
+        $total_price = 0;
+        $price_per_night = array();
+        $ci_dt = new DateTime( $checkin );
+        $co_dt = new DateTime( $checkout );
+        while ( $ci_dt < $co_dt ) {
+            $day_str = $ci_dt->format( 'Y-m-d' );
+            $p = rim_get_price_for_date( $apt->ID, $day_str );
+            $total_price += $p;
+            $price_per_night[ $day_str ] = $p;
+            $ci_dt->modify( '+1 day' );
+        }
+
         $results[] = array(
-            'id'         => $apt->ID,
-            'name'       => $apt->post_title,
-            'available'  => $available,
-            'short_desc' => get_post_meta( $apt->ID, 'rim_short_description', true ),
-            'sqm'        => get_post_meta( $apt->ID, 'rim_sqm', true ),
-            'guests'     => get_post_meta( $apt->ID, 'rim_guests', true ),
-            'rooms'      => get_post_meta( $apt->ID, 'rim_rooms', true ),
-            'thumb'      => $thumb ? $thumb : '',
+            'id'              => $apt->ID,
+            'name'            => $apt->post_title,
+            'available'       => $available,
+            'short_desc'      => get_post_meta( $apt->ID, 'rim_short_description', true ),
+            'sqm'             => get_post_meta( $apt->ID, 'rim_sqm', true ),
+            'guests'          => get_post_meta( $apt->ID, 'rim_guests', true ),
+            'rooms'           => get_post_meta( $apt->ID, 'rim_rooms', true ),
+            'thumb'           => $thumb ? $thumb : '',
+            'total_price'     => $total_price,
+            'price_per_night' => $price_per_night,
         );
     }
 
@@ -1073,12 +1445,25 @@ function rim_send_booking_handler() {
     $to_email = get_theme_mod( 'rim_email', get_option( 'admin_email' ) );
     $subject  = "[Residence I Mari] Richiesta: $apartment | $checkin - $checkout ($nights notti)";
 
+    // Calculate total price
+    $total_price = 0;
+    if ( $apt_id ) {
+        $ci_dt = new DateTime( $checkin );
+        $co_dt = new DateTime( $checkout );
+        while ( $ci_dt < $co_dt ) {
+            $total_price += rim_get_price_for_date( $apt_id, $ci_dt->format( 'Y-m-d' ) );
+            $ci_dt->modify( '+1 day' );
+        }
+    }
+    $price_line = $total_price > 0 ? number_format( $total_price, 0, ',', '.' ) . ' €' : 'Da definire';
+
     $body  = "NUOVA RICHIESTA DI PRENOTAZIONE\n";
     $body .= "================================\n\n";
     $body .= "Appartamento: $apartment\n";
     $body .= "Check-in:     $checkin\n";
     $body .= "Check-out:    $checkout\n";
     $body .= "Notti:        $nights\n";
+    $body .= "Totale:       $price_line\n";
     $body .= "Adulti:       $adults\n";
     $body .= "Bambini:      $children\n\n";
     $body .= "DATI OSPITE\n";
@@ -1136,7 +1521,7 @@ function rim_calendar_page_scripts( $hook ) {
         'rim-admin-calendar',
         get_theme_file_uri( 'js/admin-calendar.js' ),
         array(),
-        '1.2',
+        '2.0',
         true
     );
     wp_localize_script( 'rim-admin-calendar', 'rimCal', array(
@@ -1166,6 +1551,8 @@ function rim_render_calendar_page() {
             'id'     => $apt->ID,
             'title'  => $apt->post_title,
             'booked' => $booked,
+            'base'   => floatval( get_post_meta( $apt->ID, 'rim_base_price', true ) ),
+            'prices' => rim_get_daily_prices( $apt->ID ),
         );
     }
     ?>
@@ -1213,6 +1600,9 @@ function rim_render_calendar_page() {
     .rc-cell.rc-we-c:not(.rc-bk):not(.rc-sel){background:#fafafa}
     .rc-today-c{box-shadow:inset 0 0 0 2px #2271b1;z-index:5}
 
+    /* Prices */
+    .rc-price{font-size:11px;font-weight:600;color:#333;line-height:44px;display:block}
+
     /* Booked */
     .rc-bk{background:#e74c3c;cursor:pointer}
     .rc-bk:hover{background:#c0392b!important}
@@ -1255,6 +1645,14 @@ function rim_render_calendar_page() {
     .rc-popup-msg{margin-top:10px;font-size:13px}
     .rc-msg-err{color:#e74c3c}
     .rc-msg-ok{color:#2e7d32}
+
+    /* Tabs */
+    .rc-tabs{display:flex;gap:0;border-bottom:2px solid #e8e8e8;margin:0 0 16px}
+    .rc-tab{background:none;border:none;padding:10px 20px;font-size:14px;font-weight:600;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+    .rc-tab:hover{color:#333}
+    .rc-tab-active{color:#2271b1;border-bottom-color:#2271b1}
+    .rc-popup-hint{font-size:12px;color:#888;margin:4px 0 12px}
+    .rc-popup-warn{background:#fff3cd;color:#856404;padding:8px 12px;border-radius:4px;font-size:13px;margin-bottom:12px}
 
     /* Info table */
     .rc-info-table{width:100%;border-collapse:collapse;margin:12px 0}
@@ -1299,8 +1697,184 @@ function rim_calendar_get_data_handler() {
             'id'     => $apt->ID,
             'title'  => $apt->post_title,
             'booked' => $booked,
+            'base'   => floatval( get_post_meta( $apt->ID, 'rim_base_price', true ) ),
+            'prices' => rim_get_daily_prices( $apt->ID ),
         );
     }
 
     wp_send_json_success( $data );
+}
+
+/* ─────────────────────────────────────────────
+ * 14. INIZIALIZZAZIONE PREZZI BASE (one-time)
+ * ───────────────────────────────────────────── */
+
+/**
+ * Set default base prices for all apartments if not already set.
+ * Runs once via admin_init, then sets an option to prevent re-running.
+ */
+add_action( 'admin_init', 'rim_init_base_prices' );
+function rim_init_base_prices() {
+    if ( get_option( 'rim_base_prices_initialized' ) ) {
+        return;
+    }
+
+    // Price map: keyword in title → base price per night
+    $price_map = array(
+        'Ionio 1'       => 148,
+        'Ionio 2'       => 158,
+        'Egeo 1'        => 168,
+        'Egeo 2'        => 168,
+        'Tirreno 1'     => 148,
+        'Tirreno 2'     => 148,
+        'Adriatico 1'   => 148,
+        'Adriatico 2'   => 148,
+        'Mediterraneo'  => 168,
+    );
+
+    $apartments = get_posts( array(
+        'post_type'      => 'appartamento',
+        'posts_per_page' => -1,
+        'post_status'    => 'any',
+    ) );
+
+    foreach ( $apartments as $apt ) {
+        // Skip if already has a base price
+        $existing = get_post_meta( $apt->ID, 'rim_base_price', true );
+        if ( $existing ) {
+            continue;
+        }
+
+        foreach ( $price_map as $keyword => $price ) {
+            if ( stripos( $apt->post_title, $keyword ) !== false ) {
+                update_post_meta( $apt->ID, 'rim_base_price', $price );
+                break;
+            }
+        }
+    }
+
+    update_option( 'rim_base_prices_initialized', true );
+}
+
+/* ─────────────────────────────────────────────
+ * 15. SISTEMA PREZZI GIORNALIERI
+ * ───────────────────────────────────────────── */
+
+/**
+ * Get the nightly price for a specific apartment on a specific date.
+ * Falls back to rim_base_price if no daily override is set.
+ */
+function rim_get_price_for_date( $post_id, $date_ymd ) {
+    $daily = get_post_meta( $post_id, 'rim_daily_prices', true );
+    if ( is_array( $daily ) && isset( $daily[ $date_ymd ] ) ) {
+        return floatval( $daily[ $date_ymd ] );
+    }
+    $base = get_post_meta( $post_id, 'rim_base_price', true );
+    return $base ? floatval( $base ) : 0;
+}
+
+/**
+ * Get all daily price overrides for an apartment.
+ */
+function rim_get_daily_prices( $post_id ) {
+    $prices = get_post_meta( $post_id, 'rim_daily_prices', true );
+    return is_array( $prices ) ? $prices : array();
+}
+
+/**
+ * AJAX: Save prices for a date range (admin bulk pricing).
+ */
+add_action( 'wp_ajax_rim_save_prices', 'rim_save_prices_handler' );
+function rim_save_prices_handler() {
+    check_ajax_referer( 'rim_avail_action', 'nonce' );
+    if ( ! current_user_can( 'edit_posts' ) ) {
+        wp_send_json_error( 'Non autorizzato' );
+    }
+
+    $post_id = intval( $_POST['post_id'] );
+    $from    = sanitize_text_field( $_POST['from'] );
+    $to      = sanitize_text_field( $_POST['to'] );  // inclusive
+    $price   = floatval( $_POST['price'] );
+
+    if ( ! $from || ! $to || $from > $to ) {
+        wp_send_json_error( 'Date non valide.' );
+    }
+    if ( $price < 0 ) {
+        wp_send_json_error( 'Prezzo non valido.' );
+    }
+
+    $daily = rim_get_daily_prices( $post_id );
+    $base  = floatval( get_post_meta( $post_id, 'rim_base_price', true ) );
+
+    // Set price for each day in range
+    $current = $from;
+    while ( $current <= $to ) {
+        if ( $price == $base ) {
+            // Remove override if it matches base price (keep data clean)
+            unset( $daily[ $current ] );
+        } else {
+            $daily[ $current ] = $price;
+        }
+        $d = new DateTime( $current );
+        $d->modify( '+1 day' );
+        $current = $d->format( 'Y-m-d' );
+    }
+
+    update_post_meta( $post_id, 'rim_daily_prices', $daily );
+
+    wp_send_json_success( array(
+        'prices'  => $daily,
+        'base'    => $base,
+        'message' => 'Prezzi aggiornati',
+    ) );
+}
+
+/**
+ * AJAX: Save prices for multiple apartments at once (admin bulk).
+ */
+add_action( 'wp_ajax_rim_save_prices_bulk', 'rim_save_prices_bulk_handler' );
+function rim_save_prices_bulk_handler() {
+    check_ajax_referer( 'rim_avail_action', 'nonce' );
+    if ( ! current_user_can( 'edit_posts' ) ) {
+        wp_send_json_error( 'Non autorizzato' );
+    }
+
+    $post_ids_raw = sanitize_text_field( $_POST['post_ids'] ?? '' );
+    $from         = sanitize_text_field( $_POST['from'] );
+    $to           = sanitize_text_field( $_POST['to'] );
+    $price        = floatval( $_POST['price'] );
+    $post_ids     = array_map( 'intval', explode( ',', $post_ids_raw ) );
+
+    if ( ! $from || ! $to || $from > $to ) {
+        wp_send_json_error( 'Date non valide.' );
+    }
+    if ( $price < 0 ) {
+        wp_send_json_error( 'Prezzo non valido.' );
+    }
+
+    $results = array();
+    foreach ( $post_ids as $pid ) {
+        if ( $pid <= 0 ) continue;
+        $daily = rim_get_daily_prices( $pid );
+        $base  = floatval( get_post_meta( $pid, 'rim_base_price', true ) );
+
+        $current = $from;
+        while ( $current <= $to ) {
+            if ( $price == $base ) {
+                unset( $daily[ $current ] );
+            } else {
+                $daily[ $current ] = $price;
+            }
+            $d = new DateTime( $current );
+            $d->modify( '+1 day' );
+            $current = $d->format( 'Y-m-d' );
+        }
+        update_post_meta( $pid, 'rim_daily_prices', $daily );
+        $results[ $pid ] = array( 'prices' => $daily, 'base' => $base );
+    }
+
+    wp_send_json_success( array(
+        'updated' => $results,
+        'message' => 'Prezzi aggiornati per ' . count( $results ) . ' appartamenti',
+    ) );
 }

@@ -16,8 +16,8 @@ $maps_embed_url  = get_theme_mod( 'rim_google_maps_embed_url', 'https://www.goog
 $phone           = get_theme_mod( 'rim_phone', '0564 937081' );
 $cellphone       = get_theme_mod( 'rim_cellphone', '338 8625775' );
 $winter_phone    = get_theme_mod( 'rim_winter_phone', '0564 932566' );
-$email           = get_theme_mod( 'rim_email', 'residenceimari@gmail.com' );
-$address         = get_theme_mod( 'rim_address', 'Via Montecristo 7, 58043 Castiglione della Pescaia (GR)' );
+$email           = get_theme_mod( 'rim_email', 'piccolo_hotel@virgilio.it' );
+$address         = get_theme_mod( 'rim_address', 'Via Ansedonia 10, 58043 Castiglione della Pescaia (GR)' );
 
 // Hero
 $hero_pre   = get_theme_mod( 'rim_hero_pretitle', 'Benvenuti al' );
@@ -31,7 +31,7 @@ $intro_p2    = get_theme_mod( 'rim_intro_p2', 'Ogni appartamento &egrave; stato 
 $intro_p3    = get_theme_mod( 'rim_intro_p3', 'A soli 50 metri troverete alimentari, bar, farmacia, ristoranti e tutti i servizi. La spiaggia con stabilimenti balneari convenzionati &egrave; raggiungibile comodamente a piedi.' );
 
 // Location
-$location_desc = get_theme_mod( 'rim_location_desc', 'Il Residence I Mari si trova in <strong>Via Montecristo 7</strong>, in una posizione privilegiata a pochi passi dal centro e dalla spiaggia. La localit&agrave; &egrave; una delle perle della Maremma Toscana, premiata con la Bandiera Blu per la qualit&agrave; delle acque.' );
+$location_desc = get_theme_mod( 'rim_location_desc', 'Il Residence I Mari si trova in <strong>Via Ansedonia 10</strong>, in una posizione privilegiata a pochi passi dal centro e dalla spiaggia. La localit&agrave; &egrave; una delle perle della Maremma Toscana, premiata con la Bandiera Blu per la qualit&agrave; delle acque.' );
 ?>
 
 <!-- HERO -->
@@ -87,7 +87,7 @@ $location_desc = get_theme_mod( 'rim_location_desc', 'Il Residence I Mari si tro
             </div>
             <div class="intro__images">
                 <div class="intro__img intro__img--main">
-                    <img src="<?php echo esc_url( get_theme_file_uri( 'img/esterni/facciata-residence.png' ) ); ?>" alt="<?php esc_attr_e( 'Residence I Mari - Facciata', 'residence-i-mari' ); ?>" loading="lazy">
+                    <img src="<?php echo esc_url( get_theme_file_uri( 'img/esterni/facciata-residence.png' ) ); ?>" alt="<?php esc_attr_e( 'Residence I Mari - Facciata', 'residence-i-mari' ); ?>" fetchpriority="high">
                 </div>
                 <div class="intro__img intro__img--accent">
                     <img src="<?php echo esc_url( get_theme_file_uri( 'img/esterni/retro-residence.png' ) ); ?>" alt="<?php esc_attr_e( 'Residence I Mari - Ingresso con vaso blu', 'residence-i-mari' ); ?>" loading="lazy">
@@ -118,13 +118,14 @@ $location_desc = get_theme_mod( 'rim_location_desc', 'Il Residence I Mari si tro
                 while ( $apartments->have_posts() ) :
                     $apartments->the_post();
 
-                    $apt_id    = get_the_ID();
-                    $sqm       = get_post_meta( $apt_id, 'rim_sqm', true );
-                    $guests    = get_post_meta( $apt_id, 'rim_guests', true );
-                    $rooms     = get_post_meta( $apt_id, 'rim_rooms', true );
+                    $apt_id     = get_the_ID();
+                    $sqm        = get_post_meta( $apt_id, 'rim_sqm', true );
+                    $guests     = get_post_meta( $apt_id, 'rim_guests', true );
+                    $rooms      = get_post_meta( $apt_id, 'rim_rooms', true );
                     $short_desc = get_post_meta( $apt_id, 'rim_short_description', true );
-                    $amenities = rim_get_amenities( $apt_id );
-                    $slug      = sanitize_title( get_the_title() );
+                    $base_price = get_post_meta( $apt_id, 'rim_base_price', true );
+                    $amenities  = rim_get_amenities( $apt_id );
+                    $slug       = sanitize_title( get_the_title() );
 
                     // Badge: prima parola del titolo (es. "Adriatico" da "Adriatico 1")
                     $title_parts = explode( ' ', get_the_title() );
@@ -157,10 +158,14 @@ $location_desc = get_theme_mod( 'rim_location_desc', 'Il Residence I Mari si tro
                             <?php endif; ?>
                             <?php if ( ! empty( $amenities ) ) : ?>
                                 <div class="apt-card__amenities">
-                                    <?php foreach ( $amenities as $amenity ) : ?>
-                                        <span><?php echo esc_html( $amenity ); ?></span>
+                                    <?php foreach ( $amenities as $amenity ) :
+                                        $label = is_array( $amenity ) ? $amenity['label'] : $amenity; ?>
+                                        <span><?php echo esc_html( $label ); ?></span>
                                     <?php endforeach; ?>
                                 </div>
+                            <?php endif; ?>
+                            <?php if ( $base_price ) : ?>
+                                <p class="apt-card__price">da <strong><?php echo esc_html( $base_price ); ?> &euro;</strong> / notte</p>
                             <?php endif; ?>
                             <a href="<?php the_permalink(); ?>" class="btn btn--primary btn--block"><?php esc_html_e( 'Scopri l\'Appartamento', 'residence-i-mari' ); ?></a>
                         </div>

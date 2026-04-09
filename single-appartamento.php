@@ -16,10 +16,10 @@ while ( have_posts() ) :
     $sqm        = get_post_meta( $apt_id, 'rim_sqm', true );
     $guests     = get_post_meta( $apt_id, 'rim_guests', true );
     $rooms      = get_post_meta( $apt_id, 'rim_rooms', true );
+    $base_price = get_post_meta( $apt_id, 'rim_base_price', true );
     $amenities  = rim_get_amenities( $apt_id );
     $gallery    = get_post_meta( $apt_id, 'rim_gallery', true );
     $gallery    = is_array( $gallery ) ? $gallery : array();
-    $airbnb_url = get_post_meta( $apt_id, 'rim_airbnb_url', true );
 
     // Build hero slider images: featured image + gallery
     $hero_images = array();
@@ -56,6 +56,9 @@ while ( have_posts() ) :
                 <?php if ( $rooms ) : ?>
                     <span><?php echo esc_html( $rooms ); ?> <?php echo esc_html( _n( 'camera', 'camere', (int) $rooms, 'residence-i-mari' ) ); ?></span>
                 <?php endif; ?>
+                <?php if ( $base_price ) : ?>
+                    <span class="apt-hero__price">da <?php echo esc_html( $base_price ); ?> &euro;/notte</span>
+                <?php endif; ?>
             </div>
         </div>
         <?php if ( $total_slides > 1 ) : ?>
@@ -77,22 +80,25 @@ while ( have_posts() ) :
                 </div>
                 <div class="apt-amenities">
                     <?php if ( ! empty( $amenities ) ) : ?>
-                        <h3><?php esc_html_e( 'Dotazioni', 'residence-i-mari' ); ?></h3>
-                        <ul class="apt-amenities__list">
-                            <?php foreach ( $amenities as $amenity ) : ?>
-                                <li><?php echo esc_html( $amenity ); ?></li>
+                        <h3 class="apt-amenities__title"><?php esc_html_e( 'Cosa troverai', 'residence-i-mari' ); ?></h3>
+                        <div class="apt-amenities__grid">
+                            <?php foreach ( $amenities as $key => $amenity ) :
+                                $label = is_array( $amenity ) ? $amenity['label'] : $amenity;
+                                $icon  = is_array( $amenity ) ? $amenity['icon']  : '';
+                            ?>
+                                <div class="apt-amenity">
+                                    <?php if ( $icon ) : ?>
+                                        <span class="apt-amenity__icon"><?php echo $icon; // phpcs:ignore WordPress.Security.EscapeOutput ?></span>
+                                    <?php endif; ?>
+                                    <span class="apt-amenity__label"><?php echo esc_html( $label ); ?></span>
+                                </div>
                             <?php endforeach; ?>
-                        </ul>
+                        </div>
                     <?php endif; ?>
                     <div class="apt-amenities__cta">
                         <a href="<?php echo esc_url( home_url( '/#contatti' ) ); ?>" class="btn btn--primary btn--block"><?php esc_html_e( 'Richiedi Disponibilit&agrave;', 'residence-i-mari' ); ?></a>
-                        <?php
-                        $phone = get_theme_mod( 'rim_phone', '0564 937081' );
-                        ?>
+                        <?php $phone = get_theme_mod( 'rim_phone', '0564 937081' ); ?>
                         <a href="tel:+39<?php echo esc_attr( rim_phone_link( $phone ) ); ?>" class="btn btn--outline btn--block"><?php esc_html_e( 'Chiama Ora', 'residence-i-mari' ); ?></a>
-                        <?php if ( $airbnb_url ) : ?>
-                            <a href="<?php echo esc_url( $airbnb_url ); ?>" target="_blank" rel="noopener" class="btn btn--outline btn--block"><?php esc_html_e( 'Vedi su Airbnb', 'residence-i-mari' ); ?></a>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
