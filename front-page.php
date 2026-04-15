@@ -17,7 +17,7 @@ $google_reviews = get_theme_mod( 'rim_google_reviews_count', '180' );
 
 // Hero
 $hero_pre   = get_theme_mod( 'rim_hero_pretitle', 'Benvenuti al' );
-$hero_title = get_theme_mod( 'rim_hero_title', 'Residence I Mari — Appartamenti a Castiglione della Pescaia sul Mare' );
+$hero_title = get_theme_mod( 'rim_hero_title', 'Residence I Mari — Appartamenti a Castiglione della Pescaia' );
 $hero_sub   = get_theme_mod( 'rim_hero_subtitle', 'A 100 metri dalla spiaggia · Via Ansedonia, 10 · Castiglione della Pescaia (GR) ★★★' );
 
 // Intro

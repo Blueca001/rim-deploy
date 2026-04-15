@@ -1002,7 +1002,7 @@ function rim_seo_meta_tags() {
     $site_name = get_bloginfo( 'name' );
     $site_url  = home_url( '/' );
 
-    $title       = $site_name . ' — Appartamenti a Castiglione della Pescaia sul mare';
+    $title       = $site_name . ' — Appartamenti a Castiglione della Pescaia';
     $description = 'Residence con 9 appartamenti ristrutturati a 100 metri dal mare a Castiglione della Pescaia, Maremma Toscana. Parcheggio privato, pet friendly, spiaggia convenzionata.';
     $canonical   = $site_url;
     $og_image    = get_theme_file_uri( 'img/esterni/Esterni-e-Hall-2.jpg' );
@@ -2082,7 +2082,7 @@ function rim_seo_custom_titles( $title ) {
         return 'Appartamenti Vacanza Castiglione della Pescaia' . $sep;
     }
     if ( is_page( 'appartamenti' ) || is_post_type_archive( 'appartamento' ) ) {
-        return '9 Appartamenti Vista Mare a Castiglione della Pescaia' . $sep;
+        return '9 Appartamenti a 100m dalla Spiaggia · Castiglione della Pescaia' . $sep;
     }
     if ( is_page( 'il-residence' ) ) {
         return 'Residence a 100m dal Mare, Castiglione della Pescaia' . $sep;
