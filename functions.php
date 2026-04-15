@@ -56,9 +56,10 @@ function rim_enqueue_assets() {
     $ver = wp_get_theme()->get( 'Version' );
 
     // Google Fonts — Jost + Cormorant Garamond
+    // display=swap evita il render-blocking su mobile (testo visibile subito con font di sistema)
     wp_enqueue_style(
         'rim-google-fonts',
-        'https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap',
+        'https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap&display=swap',
         array(),
         null
     );
@@ -77,6 +78,16 @@ function rim_enqueue_assets() {
         array( 'rim-main-style' ),
         $ver
     );
+
+    // CSS — tariffe (solo sulla pagina tariffe)
+    if ( is_page( 'tariffe' ) ) {
+        wp_enqueue_style(
+            'rim-tariffe-style',
+            get_theme_file_uri( 'css/tariffe.css' ),
+            array( 'rim-main-style' ),
+            $ver
+        );
+    }
 
     // JS — main
     wp_enqueue_script(
@@ -820,7 +831,7 @@ function rim_schema_jsonld() {
     $email     = get_theme_mod( 'rim_email', 'residenceimari@gmail.com' );
     $address   = get_theme_mod( 'rim_address', 'Via Ansedonia 10, 58043 Castiglione della Pescaia (GR)' );
     $rating    = get_theme_mod( 'rim_google_rating', '4.5' );
-    $reviews   = get_theme_mod( 'rim_google_reviews_count', '141' );
+    $reviews   = get_theme_mod( 'rim_google_reviews_count', '180' );
 
     $rating_value = floatval( preg_replace( '/[^0-9.]/', '', $rating ) );
     $reviews_count = absint( preg_replace( '/[^0-9]/', '', $reviews ) );
@@ -1085,6 +1096,20 @@ function rim_body_classes( $classes ) {
  * @param  string $phone Numero con spazi/trattini.
  * @return string        Numero pulito (solo cifre e +).
  */
+/**
+ * Restituisce l'URL di una pagina WordPress dato lo slug.
+ *
+ * @param  string $slug Slug della pagina.
+ * @return string       URL della pagina, o fallback home_url('/$slug/').
+ */
+function rim_get_page_url( $slug ) {
+    $page = get_page_by_path( $slug );
+    if ( $page ) {
+        return get_permalink( $page );
+    }
+    return home_url( '/' . $slug . '/' );
+}
+
 function rim_phone_link( $phone ) {
     // Rimuove spazi e caratteri non numerici
     $digits = preg_replace( '/[^\d]/', '', $phone );
@@ -1877,4 +1902,405 @@ function rim_save_prices_bulk_handler() {
         'updated' => $results,
         'message' => 'Prezzi aggiornati per ' . count( $results ) . ' appartamenti',
     ) );
+}
+
+/* ─────────────────────────────────────────────
+ * HELPER — Trova il PDF del listino nella Media Library.
+ *
+ * Cerca un allegato il cui titolo o nome file contiene "listino" o "calendario-listino".
+ * In alternativa si può assegnare l'ID manualmente via Customizer (rim_listino_pdf_id).
+ * ───────────────────────────────────────────── */
+function rim_get_listino_pdf_id() {
+
+    // 1. Controlla se è stato impostato manualmente nel Customizer
+    $manual_id = get_theme_mod( 'rim_listino_pdf_id', 0 );
+    if ( $manual_id && get_post( $manual_id ) ) {
+        return (int) $manual_id;
+    }
+
+    // 2. Cerca in Media Library per nome file
+    $attachments = new WP_Query( array(
+        'post_type'      => 'attachment',
+        'post_mime_type' => 'application/pdf',
+        'posts_per_page' => 1,
+        'post_status'    => 'inherit',
+        'no_found_rows'  => true,
+        's'              => 'listino',
+    ) );
+
+    if ( $attachments->have_posts() ) {
+        return $attachments->posts[0]->ID;
+    }
+
+    return 0;
+}
+
+/* ─────────────────────────────────────────────
+ * ANALYTICS — Google Analytics 4 (GA4)
+ *
+ * Sostituisci G-XXXXXXXXXX con il tuo Measurement ID reale.
+ * Lo trovi su analytics.google.com → Admin → Data Streams.
+ * ───────────────────────────────────────────── */
+add_action( 'wp_head', 'rim_google_analytics', 1 );
+function rim_google_analytics() {
+    $ga4_id = get_theme_mod( 'rim_ga4_id', 'G-ZBDBYH9YHH' );
+    if ( empty( $ga4_id ) ) {
+        return;
+    }
+    $ga4_id = sanitize_text_field( $ga4_id );
+    ?>
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=<?php echo esc_attr( $ga4_id ); ?>"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '<?php echo esc_js( $ga4_id ); ?>', {
+    'anonymize_ip': true
+  });
+</script>
+    <?php
+}
+
+/* ─────────────────────────────────────────────
+ * ANALYTICS — Customizer: campo GA4 Measurement ID
+ * ───────────────────────────────────────────── */
+add_action( 'customize_register', 'rim_customizer_ga4' );
+function rim_customizer_ga4( $wp_customize ) {
+    $wp_customize->add_section( 'rim_analytics', array(
+        'title'    => __( 'Analytics & Tracking', 'residence-i-mari' ),
+        'priority' => 200,
+    ) );
+    $wp_customize->add_setting( 'rim_ga4_id', array(
+        'default'           => '',
+        'sanitize_callback' => 'sanitize_text_field',
+        'transport'         => 'refresh',
+    ) );
+    $wp_customize->add_control( 'rim_ga4_id', array(
+        'label'       => __( 'Google Analytics 4 — Measurement ID', 'residence-i-mari' ),
+        'description' => __( 'Formato: G-XXXXXXXXXX. Trovalo su analytics.google.com → Admin → Data Streams.', 'residence-i-mari' ),
+        'section'     => 'rim_analytics',
+        'type'        => 'text',
+    ) );
+}
+
+/* ─────────────────────────────────────────────
+ * SEO — Schema LodgingBusiness + AggregateRating (JSON-LD)
+ *
+ * Inietta schema strutturato nel <head> per migliorare
+ * la visibilità nei risultati Google (rich snippets).
+ * ───────────────────────────────────────────── */
+add_action( 'wp_head', 'rim_seo_lodging_schema', 99 );
+function rim_seo_lodging_schema() {
+    // Mostra schema su tutte le pagine del sito
+    if ( is_admin() ) {
+        return;
+    }
+
+    $address  = get_theme_mod( 'rim_address', 'Via Ansedonia 10, 58043 Castiglione della Pescaia (GR)' );
+    $phone    = get_theme_mod( 'rim_phone', '0564 937081' );
+    $email    = get_theme_mod( 'rim_email', 'piccolo_hotel@virgilio.it' );
+    $logo_id  = get_theme_mod( 'custom_logo' );
+    $logo_url = $logo_id ? wp_get_attachment_image_url( $logo_id, 'full' ) : '';
+
+    $schema = array(
+        '@context'       => 'https://schema.org',
+        '@type'          => 'LodgingBusiness',
+        'name'           => 'Residence I Mari',
+        'description'    => 'Appartamenti vacanze a Castiglione della Pescaia, Maremma Toscana. 9 appartamenti a 100 metri dal mare.',
+        'url'            => home_url( '/' ),
+        'telephone'      => '+39 ' . $phone,
+        'email'          => $email,
+        'starRating'     => array(
+            '@type'       => 'Rating',
+            'ratingValue' => '3',
+        ),
+        'address'        => array(
+            '@type'           => 'PostalAddress',
+            'streetAddress'   => 'Via Ansedonia, 10',
+            'addressLocality' => 'Castiglione della Pescaia',
+            'postalCode'      => '58043',
+            'addressRegion'   => 'GR',
+            'addressCountry'  => 'IT',
+        ),
+        'geo'            => array(
+            '@type'     => 'GeoCoordinates',
+            'latitude'  => 42.7637,
+            'longitude' => 10.8837,
+        ),
+        'image'          => $logo_url,
+        'priceRange'     => '€€',
+        'checkinTime'    => '14:00',
+        'checkoutTime'   => '10:00',
+        'amenityFeature' => array(
+            array( '@type' => 'LocationFeatureSpecification', 'name' => 'WiFi gratuito', 'value' => true ),
+            array( '@type' => 'LocationFeatureSpecification', 'name' => 'Parcheggio privato', 'value' => true ),
+            array( '@type' => 'LocationFeatureSpecification', 'name' => 'Aria condizionata', 'value' => true ),
+            array( '@type' => 'LocationFeatureSpecification', 'name' => 'Biciclette gratuite', 'value' => true ),
+        ),
+        'aggregateRating' => array(
+            '@type'       => 'AggregateRating',
+            'ratingValue' => '4.5',
+            'reviewCount' => '180',
+            'bestRating'  => '5',
+        ),
+    );
+
+    echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . '</script>' . "\n";
+}
+
+/* ─────────────────────────────────────────────
+ * SEO — Disabilita sitemap Yoast per author e category
+ * ───────────────────────────────────────────── */
+add_filter( 'wpseo_sitemap_exclude_author', '__return_true' );
+
+add_filter( 'wpseo_sitemap_exclude_taxonomy', function( $excluded, $taxonomy ) {
+    if ( 'category' === $taxonomy ) {
+        return true;
+    }
+    return $excluded;
+}, 10, 2 );
+
+/* ─────────────────────────────────────────────
+ * SEO — Noindex sample-page e author/category pages
+ * ───────────────────────────────────────────── */
+add_filter( 'wpseo_robots', function( $robots ) {
+    if ( is_page( 'sample-page' ) || is_author() || is_category() ) {
+        return 'noindex, nofollow';
+    }
+    return $robots;
+} );
+
+/* ─────────────────────────────────────────────
+ * SEO — Title tag ottimizzati (filtro Yoast)
+ * ───────────────────────────────────────────── */
+add_filter( 'wpseo_title', 'rim_seo_custom_titles' );
+function rim_seo_custom_titles( $title ) {
+    $sep = ' | Residence I Mari';
+
+    if ( is_front_page() ) {
+        return 'Appartamenti Vacanza Castiglione della Pescaia' . $sep;
+    }
+    if ( is_page( 'appartamenti' ) || is_post_type_archive( 'appartamento' ) ) {
+        return '9 Appartamenti Vista Mare a Castiglione della Pescaia' . $sep;
+    }
+    if ( is_page( 'il-residence' ) ) {
+        return 'Residence a 100m dal Mare, Castiglione della Pescaia' . $sep;
+    }
+    if ( is_page( 'tariffe' ) ) {
+        return 'Tariffe 2026 Appartamenti Castiglione della Pescaia' . $sep;
+    }
+    if ( is_page( 'castiglione-della-pescaia' ) ) {
+        return 'Castiglione della Pescaia: Spiagge, Borghi e Natura' . $sep;
+    }
+    if ( is_page( 'servizi' ) ) {
+        return 'Servizi Inclusi e Comfort' . $sep;
+    }
+    if ( is_page( 'gallery' ) ) {
+        return 'Foto Appartamenti e Residence' . $sep;
+    }
+    if ( is_page( 'posizione' ) ) {
+        return 'Come Arrivare a Castiglione della Pescaia' . $sep;
+    }
+    if ( is_page( 'contatti' ) ) {
+        return 'Contatti e Prenotazioni' . $sep;
+    }
+    if ( is_singular( 'appartamento' ) ) {
+        return get_the_title() . ' a Castiglione della Pescaia' . $sep;
+    }
+
+    return $title;
+}
+
+/* ─────────────────────────────────────────────
+ * SEO — Meta description di fallback per pagine senza Yoast desc
+ * ───────────────────────────────────────────── */
+add_filter( 'wpseo_metadesc', 'rim_seo_custom_metadesc' );
+function rim_seo_custom_metadesc( $desc ) {
+    // Non sovrascrivere se già compilata in Yoast
+    if ( ! empty( $desc ) ) {
+        return $desc;
+    }
+
+    if ( is_front_page() ) {
+        return 'Residence I Mari: 9 appartamenti a 100 metri dal mare a Castiglione della Pescaia, Maremma Toscana. Recentemente ristrutturati, parcheggio, WiFi, pet friendly. Prenota direttamente.';
+    }
+    if ( is_page( 'tariffe' ) ) {
+        return 'Tariffe 2025/2026 degli appartamenti Residence I Mari a Castiglione della Pescaia. Bilocali e trilocali con prezzi a partire da €80/notte. Preventivo personalizzato.';
+    }
+    if ( is_page( 'appartamenti' ) || is_post_type_archive( 'appartamento' ) ) {
+        return 'Scopri i 9 appartamenti del Residence I Mari a Castiglione della Pescaia: bilocali e trilocali a 100m dal mare con giardino e parcheggio.';
+    }
+    if ( is_page( 'il-residence' ) ) {
+        return 'Residence I Mari: appartamenti vacanza nel cuore di Castiglione della Pescaia, Maremma Toscana. A 100 metri dalla spiaggia, comfort e tranquillità.';
+    }
+    if ( is_page( 'castiglione-della-pescaia' ) ) {
+        return 'Castiglione della Pescaia: spiagge premiate Bandiera Blu, borgo medievale e riserva naturale della Diaccia Botrona. Scopri cosa vedere e fare.';
+    }
+    if ( is_page( 'servizi' ) ) {
+        return 'WiFi, parcheggio, biciclette, biancheria e pulizie incluse. Scopri tutti i servizi del Residence I Mari a Castiglione della Pescaia.';
+    }
+    if ( is_page( 'gallery' ) ) {
+        return 'Foto degli appartamenti, del giardino e degli esterni del Residence I Mari a Castiglione della Pescaia.';
+    }
+    if ( is_page( 'posizione' ) ) {
+        return 'Come arrivare al Residence I Mari: a 100 metri dal mare nel centro di Castiglione della Pescaia. Mappa, indicazioni e parcheggio.';
+    }
+    if ( is_page( 'contatti' ) ) {
+        return 'Contatta il Residence I Mari per informazioni e prenotazioni. Telefono, email e modulo di richiesta disponibilità.';
+    }
+    if ( is_singular( 'appartamento' ) ) {
+        $data = rim_get_apt_seo_content( get_the_ID() );
+        if ( $data ) {
+            // Rimuove i tag HTML dall'intro per la meta description
+            return wp_strip_all_tags( $data['intro'] );
+        }
+    }
+
+    return $desc;
+}
+
+/* ─────────────────────────────────────────────
+ * SEO — Fix breadcrumb Yoast per single-appartamento
+ *
+ * Aggiunge il livello "Appartamenti" tra Home e il singolo appartamento.
+ * ───────────────────────────────────────────── */
+add_filter( 'wpseo_breadcrumb_links', 'rim_seo_breadcrumb_appartamento' );
+function rim_seo_breadcrumb_appartamento( $links ) {
+    if ( ! is_singular( 'appartamento' ) ) {
+        return $links;
+    }
+
+    $apt_page = get_page_by_path( 'appartamenti' );
+    if ( ! $apt_page ) {
+        return $links;
+    }
+
+    $new_crumb = array(
+        'url'  => get_permalink( $apt_page ),
+        'text' => __( 'Appartamenti', 'residence-i-mari' ),
+    );
+
+    // Inserisci dopo "Home" (posizione 1)
+    array_splice( $links, 1, 0, array( $new_crumb ) );
+
+    return $links;
+}
+
+/* ─────────────────────────────────────────────
+ * SEO — Testi descrittivi per ogni appartamento
+ *
+ * Restituisce contenuto HTML keyword-rich usato come
+ * fallback quando il post non ha contenuto nell'editor WP.
+ * Include keyword primarie per ogni appartamento:
+ * nome + "Castiglione della Pescaia" + caratteristiche.
+ * ───────────────────────────────────────────── */
+function rim_get_apt_seo_content( $post_id ) {
+    $title = strtolower( get_the_title( $post_id ) );
+
+    // Mappa: keyword nel titolo → contenuto SEO
+    $map = array(
+
+        'adriatico 1' => array(
+            'intro'      => 'L\'<strong>Appartamento Adriatico 1</strong> è un luminoso bilocale al piano terra del Residence I Mari, a soli 100 metri dalla spiaggia di Castiglione della Pescaia. Ideale per coppie e famiglie fino a 4 persone, unisce comfort moderno e atmosfera mediterranea.',
+            'body'       => '<p>L\'appartamento si sviluppa su circa 45 mq con soggiorno, angolo cottura completamente attrezzato, camera matrimoniale, bagno con doccia e terrazzo privato affacciato sul giardino. I pavimenti in ceramica di Vietri e i dettagli in legno creano un'atmosfera calda e accogliente.</p>
+<p>Tutti gli ambienti sono dotati di <strong>climatizzatore</strong>, TV satellite, cassaforte e connessione WiFi gratuita. La cucina è completamente equipaggiata con frigorifero, piano cottura, microonde e tutto il necessario per soggiorni di qualsiasi durata.</p>
+<p>La posizione privilegiata — a 100 metri dalla <strong>Spiaggia di Levante</strong> di Castiglione della Pescaia — permette di raggiungere il mare in meno di 2 minuti a piedi. Il parcheggio privato è incluso nel soggiorno.</p>',
+            'closing'    => 'Prenota l\'Appartamento Adriatico 1 per le tue <strong>vacanze a Castiglione della Pescaia</strong> e goditi la Maremma Toscana a pochi passi dal mare.',
+        ),
+
+        'adriatico 2' => array(
+            'intro'      => 'L\'<strong>Appartamento Adriatico 2</strong> è un accogliente bilocale al primo piano del Residence I Mari, con vista sul giardino interno. Perfetto per coppie o famiglie fino a 4 persone in vacanza a <strong>Castiglione della Pescaia</strong>.',
+            'body'       => '<p>Con una superficie di circa 45 mq, l\'appartamento offre soggiorno con angolo cottura, camera matrimoniale, bagno con doccia e balcone. I materiali di pregio — ceramica di Vietri, infissi in legno, arredi su misura — garantiscono un soggiorno di qualità superiore.</p>
+<p>Dotazioni complete: <strong>climatizzatore</strong>, TV satellite, WiFi gratuito, cassaforte e angolo cottura con tutti gli elettrodomestici. Biancheria da letto e da bagno incluse nel prezzo.</p>
+<p>A 100 metri dalla spiaggia di Levante, nel cuore del lungomare di <strong>Castiglione della Pescaia</strong>, è la base ideale per esplorare la Maremma: dal Parco dell\'Uccellina alle Terme di Saturnia, dalla Cala Violina al borgo medievale.</p>',
+            'closing'    => 'Scegli l\'Appartamento Adriatico 2 per una vacanza rilassante sul <strong>mare della Toscana</strong>, a due passi da tutto.',
+        ),
+
+        'egeo 1' => array(
+            'intro'      => 'L\'<strong>Appartamento Egeo 1</strong> è un luminoso bilocale del Residence I Mari che combina design contemporaneo e comfort a 100 metri dalla spiaggia di <strong>Castiglione della Pescaia</strong>. Capacità fino a 4 ospiti.',
+            'body'       => '<p>Circa 40 mq distribuiti tra soggiorno con angolo cottura, camera matrimoniale, bagno con doccia e terrazzo. Le ampie finestre garantiscono luminosità naturale durante tutta la giornata. I pavimenti in parquet e la ceramica di Vietri in bagno e cucina conferiscono carattere all\'ambiente.</p>
+<p>Ogni comfort è incluso: <strong>aria condizionata</strong>, TV satellite, connessione WiFi ad alta velocità, cassaforte, lavatrice condivisa. L\'angolo cottura dispone di tutto il necessario per chi preferisce cucinare in autonomia.</p>
+<p>La <strong>spiaggia di Levante</strong> dista meno di due minuti a piedi. Il residence offre parcheggio privato gratuito — un vantaggio non scontato in alta stagione a Castiglione della Pescaia.</p>',
+            'closing'    => 'L\'Appartamento Egeo 1 è la scelta ideale per chi cerca un <strong>appartamento vacanze a Castiglione della Pescaia</strong> con tutti i comfort e la vicinanza al mare.',
+        ),
+
+        'egeo 2' => array(
+            'intro'      => 'L\'<strong>Appartamento Egeo 2</strong> è un bilocale rinnovato al Residence I Mari, perfetto per coppie e famiglie in vacanza a <strong>Castiglione della Pescaia</strong>. A 100 metri dalla spiaggia, con parcheggio incluso.',
+            'body'       => '<p>Spazio ottimizzato su circa 40 mq: soggiorno con angolo cottura, camera matrimoniale, bagno con doccia, balcone. Arredi moderni e funzionali, pavimenti in parquet, bagno rivestito in ceramica pregiata.</p>
+<p>Dotazioni: <strong>climatizzatore</strong>, TV satellite, WiFi gratuito, cassaforte, angolo cottura completo. L\'appartamento è stato ristrutturato di recente con materiali di qualità e cura nei dettagli.</p>
+<p>La posizione al centro del <strong>lungomare di Castiglione della Pescaia</strong> consente di raggiungere a piedi spiaggia, ristoranti, negozi e il porto canale. In auto, in meno di 30 minuti si raggiungono le Terme di Saturnia e il Parco della Maremma.</p>',
+            'closing'    => 'Prenota l\'Appartamento Egeo 2 per le tue prossime <strong>vacanze in Maremma Toscana</strong> a pochi passi dal mare.',
+        ),
+
+        'ionio 1' => array(
+            'intro'      => 'L\'<strong>Appartamento Ionio 1</strong> è un ampio bilocale del Residence I Mari, progettato per offrire il massimo comfort a coppie e famiglie fino a 4 persone in vacanza a <strong>Castiglione della Pescaia</strong>.',
+            'body'       => '<p>Circa 45 mq di spazio ben organizzato: soggiorno con divano letto, angolo cottura, camera matrimoniale, bagno con doccia e balcone privato. La disposizione degli ambienti garantisce privacy e funzionalità, con ampie aree di storage e armadi a muro.</p>
+<p>Tutto l\'essenziale è incluso: <strong>aria condizionata</strong>, riscaldamento autonomo, TV satellite, WiFi gratuito, cassaforte. La cucina è attrezzata con frigorifero, piano cottura, microonde, bollitore, tostapane e set completo di stoviglie.</p>
+<p>A 100 metri dalla <strong>spiaggia di Castiglione della Pescaia</strong>, con accesso diretto agli stabilimenti balneari convenzionati. Il parcheggio privato coperto è incluso — ideale per chi arriva in auto dalla Toscana o da altre regioni.</p>',
+            'closing'    => 'Scegli l\'Appartamento Ionio 1 per una <strong>vacanza al mare in Toscana</strong> senza rinunciare a nessun comfort.',
+        ),
+
+        'ionio 2' => array(
+            'intro'      => 'L\'<strong>Appartamento Ionio 2</strong> è un accogliente bilocale del Residence I Mari, ideale per soggiorni di coppia o in famiglia a <strong>Castiglione della Pescaia</strong>. Ristrutturato, a 100 metri dalla spiaggia.',
+            'body'       => '<p>Circa 45 mq con soggiorno, angolo cottura attrezzato, camera matrimoniale, bagno con doccia e terrazzo. Gli arredi moderni e le finiture di qualità creano un ambiente elegante e funzionale, perfetto per soggiorni di una settimana o più.</p>
+<p>Dotazioni complete: <strong>climatizzatore</strong>, TV satellite, connessione WiFi, cassaforte, lavatrice (uso condiviso). La biancheria da letto e da bagno è inclusa e cambiata a metà soggiorno per permanenze superiori ai 7 giorni.</p>
+<p>La <strong>Spiaggia di Levante di Castiglione della Pescaia</strong> è raggiungibile in 2 minuti a piedi. Il residence è pet friendly: i tuoi animali domestici sono i benvenuti.</p>',
+            'closing'    => 'Prenota Ionio 2 per le tue <strong>vacanze a Castiglione della Pescaia</strong> con tutta la famiglia, animali inclusi.',
+        ),
+
+        'tirreno 1' => array(
+            'intro'      => 'L\'<strong>Appartamento Tirreno 1</strong> è un bilocale raffinato al Residence I Mari di <strong>Castiglione della Pescaia</strong>, con finiture di pregio e posizione a 100 metri dalla spiaggia. Capacità fino a 4 persone.',
+            'body'       => '<p>Circa 45 mq distribuiti tra soggiorno con angolo cottura, camera matrimoniale, bagno con doccia e balcone. Parquet in legno chiaro, ceramiche di Vietri e infissi in alluminio a taglio termico rendono l\'appartamento silenzioso, fresco d\'estate e caldo d\'inverno.</p>
+<p>Tutte le dotazioni: <strong>climatizzatore</strong>, TV satellite HD, WiFi ad alta velocità, cassaforte, angolo cottura con elettrodomestici moderni. Il parcheggio privato riservato agli ospiti è uno dei punti di forza del residence.</p>
+<p>Dal Residence I Mari si raggiunge a piedi la spiaggia, i ristoranti del lungomare, il porto canale e il mercato di <strong>Castiglione della Pescaia</strong>. In auto, in 20 minuti si arriva a Cala Violina, una delle spiagge più belle della Toscana.</p>',
+            'closing'    => 'Tirreno 1 è la scelta perfetta per una <strong>vacanza sul mare in Maremma</strong> con comfort da residence di qualità.',
+        ),
+
+        'tirreno 2' => array(
+            'intro'      => 'L\'<strong>Appartamento Tirreno 2</strong> è un bilocale luminoso e recentemente rinnovato al Residence I Mari, situato a soli 100 metri dalla spiaggia di <strong>Castiglione della Pescaia</strong>.',
+            'body'       => '<p>Con circa 45 mq di superficie abitabile, l\'appartamento offre soggiorno con angolo cottura, camera matrimoniale, bagno con doccia e balcone privato. Le finiture sono state curate nei minimi dettagli: ceramica di Vietri, parquet, porte interne in legno massello.</p>
+<p>Dotazioni: <strong>aria condizionata</strong>, riscaldamento autonomo, TV satellite, WiFi gratuito, cassaforte, cucina completa. Biancheria da letto e da bagno incluse. Parcheggio privato coperto incluso nel prezzo.</p>
+<p>La posizione centrale nel <strong>lungomare di Castiglione della Pescaia</strong> permette di raggiungere tutto a piedi: spiaggia, supermercato, farmacia, bar e ristoranti sono tutti entro 200 metri dall\'appartamento.</p>',
+            'closing'    => 'Scegli Tirreno 2 per un <strong>soggiorno vacanza a Castiglione della Pescaia</strong> senza rinunciare alla comodità.',
+        ),
+
+        'mediterraneo' => array(
+            'intro'      => 'L\'<strong>Appartamento Mediterraneo</strong> è il più spazioso del Residence I Mari: un trilocale da 50 mq ideale per famiglie numerose o gruppi fino a 5 persone in vacanza a <strong>Castiglione della Pescaia</strong>.',
+            'body'       => '<p>Il layout include soggiorno con angolo cottura, due camere (una matrimoniale e una con letti singoli), bagno con doccia e ampio terrazzo. Lo spazio superiore rispetto ai bilocali lo rende particolarmente adatto a famiglie con bambini o a soggiorni prolungati di 2 settimane o più.</p>
+<p>Dotazioni premium: <strong>climatizzatore</strong> in ogni ambiente, TV satellite, WiFi ad alta velocità, cassaforte, cucina completamente attrezzata con lavastoviglie. Parcheggio privato incluso, biciclette disponibili per gli ospiti.</p>
+<p>A 100 metri dalla <strong>spiaggia di Levante di Castiglione della Pescaia</strong>, è la soluzione ideale per famiglie che vogliono la comodità di un appartamento con i servizi di un residence: pulizia inclusa, cambio biancheria, reception.</p>
+<p>Il Mediterraneo è perfetto anche come base per esplorare la <strong>Maremma Toscana</strong>: il Parco dell\'Uccellina, Vetulonia etrusca, le Terme di Saturnia e l\'isola d\'Elba sono tutte destinazioni raggiungibili in giornata.</p>',
+            'closing'    => 'Prenota l\'Appartamento Mediterraneo per la tua <strong>vacanza in famiglia a Castiglione della Pescaia</strong>: il più grande, il più comodo, a 100 metri dal mare.',
+        ),
+
+    );
+
+    // Cerca corrispondenza per keyword nel titolo
+    foreach ( $map as $keyword => $content ) {
+        if ( strpos( $title, $keyword ) !== false ) {
+            return $content;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Genera HTML completo del testo SEO per un appartamento.
+ *
+ * @param  int $post_id Post ID.
+ * @return string       HTML pronto da stampare.
+ */
+function rim_render_apt_seo_content( $post_id ) {
+    $data = rim_get_apt_seo_content( $post_id );
+    if ( ! $data ) {
+        return '';
+    }
+
+    $html  = '<p class="apt-intro"><strong>' . wp_kses_post( $data['intro'] ) . '</strong></p>';
+    $html .= wp_kses_post( $data['body'] );
+    $html .= '<p class="apt-closing">' . wp_kses_post( $data['closing'] ) . '</p>';
+
+    return $html;
 }

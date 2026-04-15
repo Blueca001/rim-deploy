@@ -365,6 +365,9 @@
 @media (max-width: 768px) {
   .apt-hero { height: 50vh; min-height: 350px; }
   .apt-hero__content { padding: 24px; }
+  .apt-hero__title { font-size: 1.8rem; line-height: 1.15; }
+  /* Nasconde il suffisso location sull'H1 su mobile — titolo già abbastanza lungo */
+  .apt-hero__title-location { display: none; }
   .apt-hero__controls { bottom: 24px; right: 24px; }
   .apt-hero__counter { bottom: 34px; right: 130px; }
 

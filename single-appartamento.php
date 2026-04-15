@@ -45,7 +45,7 @@ while ( have_posts() ) :
         <div class="apt-hero__overlay"></div>
         <div class="apt-hero__content">
             <a href="<?php echo esc_url( home_url( '/#appartamenti' ) ); ?>" class="apt-hero__back">&larr; <?php esc_html_e( 'Tutti gli appartamenti', 'residence-i-mari' ); ?></a>
-            <h1 class="apt-hero__title"><?php the_title(); ?></h1>
+            <h1 class="apt-hero__title"><?php the_title(); ?> <span class="apt-hero__title-location">— Castiglione della Pescaia</span></h1>
             <div class="apt-hero__meta">
                 <?php if ( $sqm ) : ?>
                     <span><?php echo esc_html( $sqm ); ?> mq</span>
@@ -76,7 +76,18 @@ while ( have_posts() ) :
             <div class="apt-details__grid">
                 <div class="apt-details__desc">
                     <h2><?php esc_html_e( 'L\'appartamento', 'residence-i-mari' ); ?></h2>
-                    <?php the_content(); ?>
+                    <?php
+                    // Mostra il contenuto dell'editor se presente, altrimenti il testo SEO di fallback
+                    $post_content = get_the_content();
+                    if ( ! empty( trim( $post_content ) ) ) {
+                        the_content();
+                    } else {
+                        $seo_html = rim_render_apt_seo_content( $apt_id );
+                        if ( $seo_html ) {
+                            echo $seo_html; // phpcs:ignore WordPress.Security.EscapeOutput — già sanificato da wp_kses_post in rim_render_apt_seo_content
+                        }
+                    }
+                    ?>
                 </div>
                 <div class="apt-amenities">
                     <?php if ( ! empty( $amenities ) ) : ?>
