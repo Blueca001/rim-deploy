@@ -2203,7 +2203,7 @@ function rim_get_apt_seo_content( $post_id ) {
 
         'adriatico 1' => array(
             'intro'      => 'L\'<strong>Appartamento Adriatico 1</strong> è un luminoso bilocale al piano terra del Residence I Mari, a soli 100 metri dalla spiaggia di Castiglione della Pescaia. Ideale per coppie e famiglie fino a 4 persone, unisce comfort moderno e atmosfera mediterranea.',
-            'body'       => '<p>L\'appartamento si sviluppa su circa 45 mq con soggiorno, angolo cottura completamente attrezzato, camera matrimoniale, bagno con doccia e terrazzo privato affacciato sul giardino. I pavimenti in ceramica di Vietri e i dettagli in legno creano un'atmosfera calda e accogliente.</p>
+            'body'       => '<p>L\'appartamento si sviluppa su circa 45 mq con soggiorno, angolo cottura completamente attrezzato, camera matrimoniale, bagno con doccia e terrazzo privato affacciato sul giardino. I pavimenti in ceramica di Vietri e i dettagli in legno creano un\'atmosfera calda e accogliente.</p>
 <p>Tutti gli ambienti sono dotati di <strong>climatizzatore</strong>, TV satellite, cassaforte e connessione WiFi gratuita. La cucina è completamente equipaggiata con frigorifero, piano cottura, microonde e tutto il necessario per soggiorni di qualsiasi durata.</p>
 <p>La posizione privilegiata — a 100 metri dalla <strong>Spiaggia di Levante</strong> di Castiglione della Pescaia — permette di raggiungere il mare in meno di 2 minuti a piedi. Il parcheggio privato è incluso nel soggiorno.</p>',
             'closing'    => 'Prenota l\'Appartamento Adriatico 1 per le tue <strong>vacanze a Castiglione della Pescaia</strong> e goditi la Maremma Toscana a pochi passi dal mare.',
