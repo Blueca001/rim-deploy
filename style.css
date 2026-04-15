@@ -2383,3 +2383,94 @@ body { padding-bottom: 64px; }
 @media (min-width: 769px) {
   .booking-modal { max-width: 520px; }
 }
+
+/* ========================================
+   MOBILE FIX — ridimensionamento immagini/sezioni
+   ======================================== */
+@media (max-width: 768px) {
+  /* Hero più compatto su tablet/mobile */
+  .hero {
+    height: 70vh;
+    min-height: 450px;
+    max-height: 600px;
+  }
+  /* Gallery righe più basse su mobile */
+  .gallery {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 160px;
+    gap: 6px;
+  }
+  .gallery__item--wide {
+    grid-column: span 2;
+  }
+  .gallery__item--tall {
+    grid-row: span 1;
+  }
+  /* Castiglione card hero meno alta */
+  .castiglione-card--hero {
+    aspect-ratio: 4/3 !important;
+  }
+  /* Section padding ridotto */
+  .section {
+    padding: 56px 0;
+  }
+  /* CTA banner compatto */
+  .cta-banner {
+    padding: 40px 20px;
+  }
+  /* Immagini card appartamenti più compatte */
+  .apt-card__gallery {
+    height: 220px;
+  }
+  /* Page hero (pagine interne) ridotto */
+  .page-hero {
+    height: 40vh;
+    min-height: 280px;
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Hero ancora più compatto su smartphone */
+  .hero {
+    height: 60vh;
+    min-height: 380px;
+    max-height: 500px;
+  }
+  /* Gallery singola colonna su piccoli schermi */
+  .gallery {
+    grid-template-columns: 1fr;
+    grid-auto-rows: 200px;
+  }
+  .gallery__item--wide,
+  .gallery__item--tall {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+  /* Castiglione grid una colonna */
+  .castiglione-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .castiglione-card--hero,
+  .castiglione-card--wide {
+    grid-column: span 1 !important;
+    aspect-ratio: 16/10 !important;
+  }
+  /* Apt card più basse */
+  .apt-card__gallery {
+    height: 200px;
+  }
+  /* Section padding ulteriore reduce */
+  .section {
+    padding: 40px 0;
+  }
+  .container {
+    padding: 0 16px;
+  }
+}
+
+/* Enforce responsive su ogni immagine */
+img, picture, video {
+  max-width: 100%;
+  height: auto;
+}
